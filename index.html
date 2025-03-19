@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Einmaleins Spiel</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 80vh;
+            overflow: hidden;
+            background-color: #f0f0f0;
+        }
+        .falling-number {
+            position: absolute;
+            font-size: 24px;
+            background-color: lightblue;
+            padding: 10px;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .selected {
+            background-color: orange;
+        }
+        #target-number {
+            font-size: 36px;
+            margin: 20px;
+            font-weight: bold;
+        }
+        #score {
+            font-size: 24px;
+        }
+        @keyframes correct {
+            0% { background-color: green; }
+            100% { background-color: #f0f0f0; }
+        }
+        @keyframes wrong {
+            0% { background-color: red; }
+            100% { background-color: #f0f0f0; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Einmaleins Spiel</h1>
+    <div id="score">Punkte: 0</div>
+    <div id="target-number"></div>
+    <div id="game-container"></div>
+    <audio id="correct-sound" src="correct.mp3"></audio>
+    <audio id="wrong-sound" src="wrong.mp3"></audio>
+    <script>
+        let score = 0;
+        let selectedNumbers = [];
+        let targetNumber;
+        let lastTarget = null;
+        let lastXPosition = null;
+        let numberPool = shuffleArray([...Array(10).keys()].map(i => i + 1));
+        const gameContainer = document.getElementById("game-container");
+        const scoreDisplay = document.getElementById("score");
+        const targetDisplay = document.getElementById("target-number");
+        const correctSound = document.getElementById("correct-sound");
+        const wrongSound = document.getElementById("wrong-sound");
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function getRandomFactor() {
+            if (numberPool.length === 0) {
+                numberPool = shuffleArray([...Array(10).keys()].map(i => i + 1));
+            }
+            return numberPool.pop();
+        }
+
+        function setNewTarget() {
+            let num1, num2, newTarget;
+            do {
+                num1 = getRandomFactor();
+                num2 = getRandomFactor();
+                newTarget = num1 * num2;
+            } while (newTarget === lastTarget);
+            
+            lastTarget = newTarget;
+            targetNumber = newTarget;
+            targetDisplay.textContent = `Ziel: ${targetNumber}`;
+        }
+
+        function createFallingNumber() {
+            const number = getRandomFactor();
+            let xPosition;
+            do {
+                xPosition = Math.random() * 90;
+            } while (lastXPosition !== null && Math.abs(xPosition - lastXPosition) < 15);
+            lastXPosition = xPosition;
+
+            const div = document.createElement("div");
+            div.classList.add("falling-number");
+            div.textContent = number;
+            div.style.left = xPosition + "vw";
+            gameContainer.appendChild(div);
+
+            div.addEventListener("click", () => selectNumber(div, number));
+            animateFalling(div);
+        }
+
+        function animateFalling(element) {
+            let position = 0;
+            const interval = setInterval(() => {
+                position += 2;
+                element.style.top = position + "px";
+                if (position > window.innerHeight) {
+                    clearInterval(interval);
+                    element.remove();
+                }
+            }, 50);
+        }
+
+        function selectNumber(element, number) {
+            if (selectedNumbers.length === 0) {
+                element.classList.add("selected");
+            }
+            selectedNumbers.push({ number, element });
+            
+            if (selectedNumbers.length === 2) {
+                let product = selectedNumbers[0].number * selectedNumbers[1].number;
+                if (product === targetNumber) {
+                    score++;
+                    scoreDisplay.textContent = `Punkte: ${score}`;
+                    correctSound.play();
+                    document.body.style.animation = "correct 0.5s";
+                } else {
+                    wrongSound.play();
+                    document.body.style.animation = "wrong 0.5s";
+                }
+                selectedNumbers.forEach(item => item.element.remove());
+                selectedNumbers = [];
+                setTimeout(() => { document.body.style.animation = ""; }, 500);
+                setNewTarget();
+            }
+        }
+
+        setNewTarget();
+        setInterval(createFallingNumber, 1000);
+    </script>
+</body>
+</html>
