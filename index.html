@@ -2,18 +2,19 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- <meta name="viewport" content="width=device-width, initial-scale=1.0"> -->
+    <meta meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <title>Einmaleins Spiel</title>
     <style>
         body {
             text-align: center;
             font-family: Arial, sans-serif;
+            overflow: hidden;
         }
         #game-container {
             position: relative;
-            width: 100vw;
+            width: 100%;
             height: 80vh;
-            overflow: hidden;
             background-color: #f0f0f0;
         }
         .falling-number {
@@ -41,6 +42,9 @@
         #score {
             font-size: 24px;
         }
+        #timer {
+            font-size: 24px;
+        }
         @keyframes correct {
             0% { background-color: green; }
             100% { background-color: #f0f0f0; }
@@ -52,24 +56,32 @@
     </style>
 </head>
 <body>
-    <h1>Einmaleins Spiel</h1>
-    <div id="score">Punkte: 0</div>
-    <div id="target-number"></div>
+    <div>
+        <h1>Einmaleins Spiel</h1>
+        <div id="score">Punkte: 0</div>
+        <div id="timer">.</div>
+        <div id="target-number"></div>
+        <audio id="correct-sound" src="correct.mp3"></audio>
+        <audio id="wrong-sound" src="wrong.mp3"></audio>
+    </div>
     <div id="game-container"></div>
-    <audio id="correct-sound" src="correct.mp3"></audio>
-    <audio id="wrong-sound" src="wrong.mp3"></audio>
     <script>
         let score = 0;
+        let speed = 2;
+        let time = 100;
+
         let selectedNumbers = [];
         let targetNumber;
         let lastTarget = null;
         let lastXPosition = null;
-        let numberPool = shuffleArray([...Array(10).keys()].map(i => i + 1));
+        let numberPool = [];
+
         const gameContainer = document.getElementById("game-container");
         const scoreDisplay = document.getElementById("score");
         const targetDisplay = document.getElementById("target-number");
         const correctSound = document.getElementById("correct-sound");
         const wrongSound = document.getElementById("wrong-sound");
+        let intervals = new Map();
 
         function shuffleArray(array) {
             for (let i = array.length - 1; i > 0; i--) {
@@ -81,16 +93,20 @@
 
         function getRandomFactor() {
             if (numberPool.length === 0) {
-                numberPool = shuffleArray([...Array(10).keys()].map(i => i + 1));
+                numberPool = shuffleArray([2, 3, 4, 5, 6, 7, 8, 9]);
             }
             return numberPool.pop();
+        }
+
+        function randomIntFromInterval(min, max) { // min and max included 
+            return Math.floor(Math.random() * (max - min + 1) + min);
         }
 
         function setNewTarget() {
             let num1, num2, newTarget;
             do {
-                num1 = getRandomFactor();
-                num2 = getRandomFactor();
+                num1 = randomIntFromInterval(2, 9);
+                num2 = randomIntFromInterval(2, 9);
                 newTarget = num1 * num2;
             } while (newTarget === lastTarget);
             
@@ -120,13 +136,51 @@
         function animateFalling(element) {
             let position = 0;
             const interval = setInterval(() => {
-                position += 2;
+                position += speed;
                 element.style.top = position + "px";
-                if (position > window.innerHeight) {
-                    clearInterval(interval);
+                if (position > window.innerHeight*0.8) {
+                    stopAnimation(element);
                     element.remove();
+                    score -= 1;
+                    updateScore();
                 }
             }, 50);
+
+            intervals.set(element, interval);
+        }
+
+        function setTimer() {
+            const timerDisplay = document.getElementById("timer");
+            const interval = setInterval(() => {
+                timerDisplay.textContent = `Zeit: ${time} s`;
+                if (time == 0) {
+                    clearInterval(interval);
+                    clearInterval(gameLoop);
+                    deleteAllFallingNumbers();
+                    setTimeout(() => {
+                        alert("Spiel vorbei! Punktestand: " + score);
+                    }, 1000);
+                }
+                time -= 1;
+            }, 1000);
+        }
+
+        function stopAnimation(element) {
+            const interval = intervals.get(element);
+            if (interval) {
+                clearInterval(interval);
+                intervals.delete(element);                
+            }
+        }
+
+        function deleteAllFallingNumbers() {
+            let fallingNumbers = document.getElementsByClassName("falling-number");
+            for (let fallingNumber of fallingNumbers) {
+                stopAnimation(fallingNumber);
+                setTimeout(() => {
+                    fallingNumber.remove();
+                }, 1);
+            }
         }
 
         function selectNumber(element, number) {
@@ -138,23 +192,30 @@
             if (selectedNumbers.length === 2) {
                 let product = selectedNumbers[0].number * selectedNumbers[1].number;
                 if (product === targetNumber) {
-                    score++;
-                    scoreDisplay.textContent = `Punkte: ${score}`;
-                    correctSound.play();
+                    score += 10;
+                    updateScore();
+
+                    deleteAllFallingNumbers();                    
+                    
+                    // correctSound.play();
                     document.body.style.animation = "correct 0.5s";
+                    setNewTarget();
                 } else {
-                    wrongSound.play();
+                    // wrongSound.play();
                     document.body.style.animation = "wrong 0.5s";
                 }
                 selectedNumbers.forEach(item => item.element.remove());
                 selectedNumbers = [];
                 setTimeout(() => { document.body.style.animation = ""; }, 500);
-                setNewTarget();
             }
+        }
+        function updateScore() {
+            scoreDisplay.textContent = `Punkte: ${score}`;
         }
 
         setNewTarget();
-        setInterval(createFallingNumber, 1000);
+        setTimer();
+        let gameLoop = setInterval(createFallingNumber, 1000);
     </script>
 </body>
 </html>
